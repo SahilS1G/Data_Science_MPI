@@ -1,6 +1,7 @@
-## Data_Science_MPI
+# Data_Science_MPI
 
-# To run the project
+## To run the project
+
 
 cd ./API/ 
 
