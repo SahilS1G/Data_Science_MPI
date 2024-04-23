@@ -1,16 +1,22 @@
-from fastapi import FastAPI ,File, UploadFile, HTTPException
+from fastapi import FastAPI ,File, UploadFile
 import uvicorn
 import numpy as np
 from io import BytesIO
+import io
 from PIL import Image
 import tensorflow as tf
 import tensorflow_hub as hub
 import google.generativeai as genai
 import os
-from fastapi.middleware.cors import CORSMiddleware
-# from fastapi.responses import PlainTextResponse
-from mangum import Mangum
+import cv2 as cv
+from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
+import base64 
+import nltk
+nltk.download('vader_lexicon')
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
+sid = SentimentIntensityAnalyzer()
 
 genai.configure(api_key=os.environ["API_KEY"])
 model = genai.GenerativeModel('gemini-pro')
@@ -108,7 +114,6 @@ class_names = ['Aloevera',
  'kamakasturi',
  'kepala']
 
-
 def image_ndarray(data):
     image = Image.open(BytesIO(data))
     image = image.resize((224,224))
@@ -127,11 +132,7 @@ async def predict(file: UploadFile):
     print(predictions["dense"])
     confidence = np.max(predictions["dense"])
     predict_class = class_names[np.argmax(predictions["dense"])]
-    if confidence > 0.9:
-        is_medicinal = True 
-    else:
-        is_medicinal = False
-        predict_class = 'No class'
+    is_medicinal = True if confidence > 0.5 else False
     details = get_details(predict_class,is_medicinal)
     return {
             'class': predict_class,
@@ -139,9 +140,85 @@ async def predict(file: UploadFile):
             'ismedicinal':is_medicinal,
             'details':details
             }
-    pass
+@app.post("/fx/")
+async def get_features(file: UploadFile):
+    img = image_ndarray(await file.read())
+    hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
+
+    green_lower = (36, 0, 0)
+    green_upper = (86, 255, 255)
+    brown_lower = (8, 60, 20)
+    brown_upper = (30, 255, 200)
+    yellow_lower = (21, 39, 64)
+    yellow_upper = (40, 255, 255)
+
+    mask_green = cv.inRange(hsv, green_lower, green_upper)
+    mask_brown = cv.inRange(hsv, brown_lower, brown_upper)
+    mask_yellow = cv.inRange(hsv, yellow_lower, yellow_upper)
+    mask_combined = cv.bitwise_or(mask_green, mask_brown)
+    mask_combined = cv.bitwise_or(mask_combined, mask_yellow)
+
+    result = cv.bitwise_and(img, img, mask=mask_combined)
+    contours, _ = cv.findContours(mask_combined, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    x, y, w, h = cv.boundingRect(max(contours, key=cv.contourArea))
+
+    zoomed_in_img = result[y:y+h, x:x+w]
+    zoomed_in_img_blurred = cv.GaussianBlur(zoomed_in_img, (5, 5), 0)
+    zoomed_in_img_rgb = cv.cvtColor(zoomed_in_img_blurred, cv.COLOR_BGR2RGB)
+    zoomed_in_img_gray = cv.cvtColor(zoomed_in_img_rgb, cv.COLOR_BGR2GRAY)
+
+    edges_noraml = cv.Canny(zoomed_in_img_gray, 100, 200)
+    zoomed_in_img_gray = cv.cvtColor(zoomed_in_img_blurred, cv.COLOR_BGR2GRAY)
+    clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    enhanced_img = clahe.apply(zoomed_in_img_gray)
+    edges = cv.Canny(enhanced_img, 100, 200)
+    print("processing complete")
+    _, img_bytes = cv.imencode('.png', zoomed_in_img_rgb)
+    _, enhanced_bytes = cv.imencode('.png', enhanced_img)
+    _, edges_bytes = cv.imencode('.png', edges)
+    _, edges_normal_bytes = cv.imencode('.png', edges_noraml)
+    
+    img_str = base64.b64encode(img_bytes).decode('utf-8')
+    enhanced_str = base64.b64encode(enhanced_bytes).decode('utf-8')
+    edges_str = base64.b64encode(edges_bytes).decode('utf-8')
+    edges_normal_str = base64.b64encode(edges_normal_bytes).decode('utf-8')
+
+    # Return the base64 strings
+    return {
+        "img": img_str,
+        "enhanced": enhanced_str,
+        "edges": edges_str,
+        "edges_normal": edges_normal_str
+    }
+    
+    
+@app.post('/feedback/')
+async def feedbackAnal(feedback):
+    sentiment_scores = sid.polarity_scores(feedback)
+    compound_score = sentiment_scores['compound']
+    if compound_score>0.05:
+        return {
+            'cs' : compound_score,
+            'status' : 'positive'
+        }
+    elif compound_score<0.05:
+        return {
+            'cs' : compound_score,
+            'status' : 'negative'
+        }
+    else:
+        return {
+            'cs' : compound_score,
+            'status' : 'neutral'
+        }
+    
+
+
+
+
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="localhost", port=3000)
+    uvicorn.run(app,host='localhost',port=3000)
+
 
 

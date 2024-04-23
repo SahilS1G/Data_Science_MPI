@@ -7,8 +7,9 @@ import History from '../screens/History';
 import Profile from '../screens/Profile';
 import Response from '../screens/Response';
 import Feedback from '../screens/Feedback';
-import Ionicons from 'react-native-vector-icons/Ionicons'; // Import Ionicons from react-native-vector-icons
 
+import Ionicons from 'react-native-vector-icons/Ionicons'; // Import Ionicons from react-native-vector-icons
+import Features from '../screens/Features';
 type ResponseData = {
   class: string;
   confidence: number;
@@ -22,6 +23,14 @@ type HistoryItem = {
   response: { class: string; confidence: number; details: string; ismedicinal: boolean };
 };
 
+type FeaturesItem = {
+  img_str : string,
+  enhanced_str : string,
+  edges_str: string,
+  edges_normal_str: string,
+}
+
+
 interface history_ {
   history: HistoryItem[];
 }
@@ -30,12 +39,19 @@ export type AppStackParamList = {
   History: history_;
   Profile: undefined;
   MPIA: undefined;
+  Features: FeaturesItem;
 };
 export type AppStackParamListResult = {
   Home: undefined;
   History: history_;
   Response: { imageUrl: string; response: ResponseData };
   Feedback: undefined;
+  Features: {
+    img_str : string,
+    enhanced_str : string,
+    edges_str: string,
+    edges_normal_str: string,
+  };
 };
 
 const Tab = createBottomTabNavigator<AppStackParamList>();
@@ -58,6 +74,7 @@ export const MPIA = () => {
       <Stack.Screen name="Home" component={Home} options={{ headerShown: false }} />
       <Stack.Screen name="Response" component={Response} options={{ title: 'Response' }} />
       <Stack.Screen name="Feedback" component={Feedback} options={{ title: 'Feedback' }} />
+      <Stack.Screen name="Features" component={Features} options={{ title: 'Features' }} />
     </Stack.Navigator>
   );
 };
@@ -94,6 +111,9 @@ export const AppStack = () => {
       <Tab.Screen name="History" component={History} options={{ tabBarLabel: 'History' }} />
       {/* <Tab.Screen name="Profile" component={Profile} options={{ tabBarLabel: 'Profile' }} /> */}
       <Tab.Screen name="Profile" component={Profile} options={{ tabBarLabel: 'Profile', headerStyle: { backgroundColor: 'black' }, headerTintColor:'white' }}/>
+
+      
+
     </Tab.Navigator>
   );
 };

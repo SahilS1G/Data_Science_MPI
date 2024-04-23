@@ -5,11 +5,29 @@ import { StackScreenProps } from '@react-navigation/stack';
 
 export type FeedbackScreenProps = StackScreenProps<AppStackParamListResult, 'Feedback'>;
 
-const Feedback: React.FC<FeedbackScreenProps> = () => {
+const Feedback: React.FC<FeedbackScreenProps> = ({navigation}) => {
   const [feedback, setFeedback] = React.useState('');
 
   const handleSubmit = () => {
     console.log('Submitted feedback:', feedback);
+    fetch('http://localhost:3000/feedback/', {
+      method: 'POST',
+      body: feedback,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    .then(response => response.json())
+    .then(data => {
+      // console.log('Response from FastAPI:', data);
+      console.log("feedback analysis: ", data)
+      
+    })
+    .catch(error => {
+      console.error('Error sending image to FastAPI:', error);
+    });
+    navigation.navigate('Home')
   };
 
   return (

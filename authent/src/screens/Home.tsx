@@ -21,12 +21,20 @@ type UserObj = {
   email: string;
 };
 
+type FeaturesItem = {
+  img_str : string,
+  enhanced_str : string,
+  edges_str: string,
+  edges_normal_str: string,
+}
 
 type HistoryItem = {
   email:string
   image: string;
   response: { class: string; confidence: number; details: string; ismedicinal: boolean };
 };
+
+
 
 type HomeScreenProps = StackScreenProps<AppStackParamListResult, 'Home'>
 
@@ -38,6 +46,7 @@ const Home: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [userId, setUserID] = useState<string>('')
   const { appwrite } = useContext(AppwriteContext);
   const [userData, setUserData] = useState<UserObj>();
+  const [featureItem, setFeatureItem] = useState<FeaturesItem>({img_str: '', enhanced_str: '', edges_str: '', edges_normal_str: ''})
 
   useEffect(() => {
     appwrite.getCurrnetUser().then(response => {
@@ -90,6 +99,10 @@ const Home: React.FC<HomeScreenProps> = ({ navigation }) => {
     console.log('History:', history)
   };
 
+  const handleFeatureExtraction = () => {
+    navigation.navigate('Features', featureItem)
+  }
+
   const handleCameraLaunch = () => {
     launchCamera({
       mediaType: 'photo',
@@ -127,10 +140,31 @@ const Home: React.FC<HomeScreenProps> = ({ navigation }) => {
               console.log('Response from FastAPI:', data);
               setResponse(data)
               addToHistory(imageUri, data);
+              // setFeatureItem({img_str: data.img_str, enhanced_str: data.enhanced_str, edges_str: data.edges_str, edges_normal_str: data.edges_normal_str})
             })
             .catch(error => {
               console.error('Error sending image to FastAPI:', error);
             });
+            fetch('http://localhost:3000/fx/', {
+              method: 'POST',
+              body: formData,
+              headers: {
+                Accept: 'application/json',
+                'Content-Type': 'multipart/form-data',
+              },
+            })
+              .then(response => response.json())
+              .then(data => {
+                // console.log('Response from FastAPI:', data);
+                // setResponse(data)
+                // addToHistory(imageUri, data);
+                console.log(data.edges_str)
+                setFeatureItem({img_str: data.img, enhanced_str: data.enhanced, edges_str: data.edges, edges_normal_str: data.edges_normal})
+                console.log(featureItem)
+              })
+              .catch(error => {
+                console.error('Error sending image to FastAPI:', error);
+              });
         }
       }
     });
@@ -176,6 +210,24 @@ const Home: React.FC<HomeScreenProps> = ({ navigation }) => {
             .catch(error => {
               console.error('Error sending image to FastAPI:', error);
             });
+            fetch('http://localhost:3000/fx/', {
+              method: 'POST',
+              body: formData,
+              headers: {
+                Accept: 'application/json',
+                'Content-Type': 'multipart/form-data',
+              },
+            })
+              .then(response => response.json())
+              .then(data => {
+                // console.log('Response from FastAPI:', data);
+                // setResponse(data)
+                // addToHistory(imageUri, data);
+                setFeatureItem({img_str: data.img, enhanced_str: data.enhanced, edges_str: data.edges, edges_normal_str: data.edges_normal})
+              })
+              .catch(error => {
+                console.error('Error sending image to FastAPI:', error);
+              });
         }
       }
     });
@@ -218,9 +270,9 @@ const Home: React.FC<HomeScreenProps> = ({ navigation }) => {
           placement="right"
           color="#f02e65"
           size="large"
-          title="History"
-          icon={{ name: 'history', color: '#FFFFFF' }}
-          onPress={() => navigation.navigate('History',{history})}
+          title="Features"
+          icon={{ name: 'feature', color: '#FFFFFF' }}
+          onPress={() => navigation.navigate('Features', featureItem)}
         />
       </View>
     </SafeAreaView>
